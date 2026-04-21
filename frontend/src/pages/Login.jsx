@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom"; 
 import { useAuth } from "../context/AuthContext";
+import { authAPI } from "../utils/api";
 
 export default function Login() {
   const [role, setRole] = useState('patient');
   const [isFlipped, setIsFlipped] = useState(false);
+   const [isSubmitting, setIsSubmitting] = useState(false);
+   const [errorMessage, setErrorMessage] = useState('');
   
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -21,38 +24,80 @@ export default function Login() {
     license: "" // Extra field for doctors
   });
 
+  const extractApiError = (error, fallback) => {
+    const validationMessage = error?.response?.data?.errors?.[0]?.message;
+    return validationMessage || error?.response?.data?.message || fallback;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ===== 1. LOGIN HANDLER (Enters the Portal) =====
-  const handleLogin = (e) => {
+   const getRedirectForRole = (targetRole) => (targetRole === 'doctor' ? '/doctor-dashboard' : '/dashboard');
+
+   // ===== 1. LOGIN HANDLER (Enters the Portal) =====
+   const handleLogin = async (e) => {
     e.preventDefault();
-    
-    // Mock Authentication Logic
-    const userName = formData.name || (role === 'doctor' ? "Dr. Abhay Dogra" : "Test User");
-    
-    // Log in via Context
-    login({ name: userName, email: formData.email }, role);
-    
-    // Redirect to the correct dashboard
-    navigate(redirectPath);
+      setIsSubmitting(true);
+      setErrorMessage('');
+
+      try {
+         const identifier = String(formData.email || '').trim();
+         const payload = { password: formData.password };
+         if (identifier.includes('@')) {
+           payload.email = identifier;
+         } else {
+           payload.phone = identifier;
+         }
+
+         const { data } = await authAPI.login(payload);
+
+         const user = login({ token: data?.token, user: data?.user });
+         navigate(location.state?.from || getRedirectForRole(user?.role || role));
+      } catch (error) {
+         setErrorMessage(extractApiError(error, 'Login failed. Please check your credentials.'));
+      } finally {
+         setIsSubmitting(false);
+      }
   };
 
   // ===== 2. SIGNUP HANDLER (Redirects to Login) =====
-  const handleSignup = (e) => {
+   const handleSignup = async (e) => {
     e.preventDefault();
-    
-    // Simulate Backend Registration...
-    
-    // Clear password for security/UX
-    setFormData(prev => ({ ...prev, password: "" }));
-    
-    // Flip back to Sign In view
-    setIsFlipped(false);
-    
-    // Optional: You could set a success message state here to display on the login card
-    alert(`Registration successful! Please sign in to access the ${role === 'doctor' ? 'Clinician Portal' : 'Patient Dashboard'}.`);
+      setIsSubmitting(true);
+      setErrorMessage('');
+
+      try {
+         if (!String(formData.name || '').trim()) {
+           setErrorMessage('Full Name is required.');
+           setIsSubmitting(false);
+           return;
+         }
+         if (!String(formData.email || '').trim()) {
+           setErrorMessage('Email is required.');
+           setIsSubmitting(false);
+           return;
+         }
+         if (!String(formData.password || '').trim()) {
+           setErrorMessage('Password is required.');
+           setIsSubmitting(false);
+           return;
+         }
+
+         const { data } = await authAPI.register({
+            fullName: formData.name.trim(),
+            email: formData.email.trim(),
+            password: formData.password,
+            role,
+         });
+
+         const user = login({ token: data?.token, user: data?.user });
+         navigate(getRedirectForRole(user?.role || role));
+      } catch (error) {
+         setErrorMessage(extractApiError(error, 'Registration failed. Please try again.'));
+      } finally {
+         setIsSubmitting(false);
+      }
   };
 
   return (
@@ -107,16 +152,21 @@ export default function Login() {
                   <p className="text-slate-500 text-sm">
                     {role === 'doctor' ? 'Secure login for medical practitioners.' : 'Sign in to access your health dashboard.'}
                   </p>
+                           {errorMessage ? (
+                              <div className="mt-3 bg-rose-50 text-rose-700 px-4 py-2 rounded-xl text-sm font-medium">
+                                 {errorMessage}
+                              </div>
+                           ) : null}
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
                    <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-500 ml-1 uppercase">Email</label>
                       <input 
-                        type="email" 
+                        type="text" 
                         name="email" 
                         value={formData.email} // Controlled input to keep email after signup
-                        placeholder={role === 'doctor' ? "dr.name@hospital.com" : "name@example.com"}
+                        placeholder={role === 'doctor' ? "dr.name@hospital.com or phone" : "name@example.com or phone"}
                         onChange={handleChange}
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none" 
                       />
@@ -134,7 +184,7 @@ export default function Login() {
                    </div>
 
                    <button type="submit" className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5 transition-all">
-                      {role === 'doctor' ? 'Access Portal' : 'Sign In'}
+                      {isSubmitting ? 'Please wait...' : (role === 'doctor' ? 'Access Portal' : 'Sign In')}
                    </button>
                 </form>
 
@@ -162,6 +212,11 @@ export default function Login() {
                   <p className="text-slate-500 text-sm">
                      {role === 'doctor' ? 'Register your clinic.' : 'Create your patient profile.'}
                   </p>
+                  {errorMessage ? (
+                    <div className="mt-3 bg-rose-50 text-rose-700 px-4 py-2 rounded-xl text-sm font-medium">
+                      {errorMessage}
+                    </div>
+                  ) : null}
                 </div>
                 
                 <form onSubmit={handleSignup} className="space-y-3">
@@ -200,7 +255,7 @@ export default function Login() {
                    />
 
                    <button className="w-full py-3.5 bg-blue-600 text-white font-bold rounded-xl shadow-lg mt-2 hover:bg-blue-700 transition-all">
-                      {role === 'doctor' ? 'Register' : 'Create Account'}
+                      {isSubmitting ? 'Please wait...' : (role === 'doctor' ? 'Register' : 'Create Account')}
                    </button>
                 </form>
 

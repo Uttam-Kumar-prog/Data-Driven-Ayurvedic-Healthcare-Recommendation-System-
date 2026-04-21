@@ -14,7 +14,7 @@ const Results = () => {
         setRecommendations(location.state.reportData);
         setLoading(false);
     } else {
-        const data = JSON.parse(localStorage.getItem('recommendations') || 'null');
+      const data = JSON.parse(localStorage.getItem('last_report') || localStorage.getItem('recommendations') || 'null');
         if (data) {
            setTimeout(() => {
               setRecommendations(data);

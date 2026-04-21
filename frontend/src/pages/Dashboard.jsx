@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom"; 
 import { useAuth } from "../context/AuthContext";
+import { appointmentsAPI, symptomsAPI } from "../utils/api";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -9,17 +10,54 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState([]);
 
   useEffect(() => {
-    // 1. Load Health Reports
-    const savedData = JSON.parse(localStorage.getItem("ayur_history") || "[]");
-    setHistory(savedData);
+      const fetchDashboardData = async () => {
+         try {
+            const [historyRes, appointmentsRes] = await Promise.all([
+               symptomsAPI.history(),
+               appointmentsAPI.mine(),
+            ]);
 
-    // 2. Load Appointments
-    const savedAppts = JSON.parse(localStorage.getItem("ayur_appointments") || "[]");
-    setAppointments(savedAppts);
+            const mappedHistory = (historyRes?.data?.records || []).map((record) => ({
+               id: record._id,
+               date: new Date(record.createdAt).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+               }),
+               symptoms: record.symptoms || [],
+               doshaImbalance: record?.triage?.doshaImbalance || record?.doshaImbalance || 'General Imbalance',
+               severityLevel: record?.triage?.severityLevel || 'moderate',
+               recommendedSpecialty: record?.triage?.recommendedSpecialty || 'Kayachikitsa',
+               recommendations: record.recommendations || [],
+               disclaimer: record?.triage?.disclaimer || '',
+               status: record.reviewedByDoctorId ? 'Reviewed' : 'Unreviewed',
+            }));
+
+            const mappedAppointments = (appointmentsRes?.data?.appointments || []).map((appt) => ({
+               id: appt._id,
+               doctorName: appt?.doctorId?.fullName || 'Doctor',
+               doctorSpecialty: appt?.doctorId?.doctorProfile?.specialty || appt?.consultationType || 'Specialist',
+               date: appt.slotDate,
+               time: appt.slotTime,
+               status: appt.status,
+               joinUrl: appt?.meeting?.joinUrl || '',
+            }));
+
+            setHistory(mappedHistory);
+            setAppointments(mappedAppointments);
+         } catch (error) {
+            const savedData = JSON.parse(localStorage.getItem("ayur_history") || "[]");
+            const savedAppts = JSON.parse(localStorage.getItem("ayur_appointments") || "[]");
+            setHistory(savedData);
+            setAppointments(savedAppts);
+         }
+      };
+
+      fetchDashboardData();
   }, []);
 
   const totalAssessments = history.length;
-  const upcomingCount = appointments.filter(a => a.status === 'Upcoming').length;
+   const upcomingCount = appointments.filter(a => !['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status)).length;
 
   // View the report (Redirects to Results page)
   const handleViewReport = (report) => {
@@ -49,7 +87,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900 font-serif">
-              Hello, {user?.name || 'Patient'}
+                     Hello, {user?.fullName || user?.name || 'Patient'}
             </h1>
             <p className="text-slate-500 mt-2">
               Welcome to your personal wellness journey.

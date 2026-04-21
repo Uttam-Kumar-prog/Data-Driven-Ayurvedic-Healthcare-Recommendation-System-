@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { symptomsAPI } from '../utils/api';
 
 const SymptomInput = () => {
   const [step, setStep] = useState(1);
@@ -53,6 +54,16 @@ const SymptomInput = () => {
 
   // ===== SUBMIT LOGIC =====
   const submitSymptoms = async () => {
+    if (!user) {
+      navigate('/login', {
+        state: {
+          from: '/symptoms',
+          message: 'Please sign in to submit symptoms and view personalized recommendations.',
+        },
+      });
+      return;
+    }
+
     setIsLoading(true);
     
     // 1. Analyze Primary Symptom to determine Specialist & Dosha
@@ -107,33 +118,41 @@ const SymptomInput = () => {
         status: 'Unreviewed' 
     };
 
-    // Simulate Processing Time
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // 4. Save to History (Silent Save)
-    // We save this even if not logged in (to localStorage) so it persists after login
-    const existingHistory = JSON.parse(localStorage.getItem('ayur_history') || '[]');
-    localStorage.setItem('ayur_history', JSON.stringify([medicalReport, ...existingHistory]));
+    try {
+      const payload = {
+        symptoms: formData.symptoms,
+        lifestyle: [
+          formData.lifestyle,
+          formData.age ? `Age: ${formData.age}` : '',
+          formData.gender ? `Gender: ${formData.gender}` : '',
+        ].filter(Boolean).join(' | '),
+        language: 'en',
+        inputMode: 'text',
+      };
 
-    setIsLoading(false);
+      const { data } = await symptomsAPI.submit(payload);
 
-    // 5. Redirect Logic
-    if (user) {
-        // Logged In: Go to Doctor List with Filter applied
-        navigate('/doctors', { 
-            state: { 
-                specialty: recommendedSpecialty, 
-                reason: `Based on your symptoms (${primarySymptom.replace('_',' ')}), we recommend a specialist in:` 
-            } 
-        });
-    } else {
-        // Guest: Go to Login -> Then Doctor List
-        navigate('/login', { 
-            state: { 
-                from: '/doctors', 
-                message: "Analysis complete. Please sign in to connect with a specialist." 
-            } 
-        });
+      const reportData = {
+        ...medicalReport,
+        id: data?.assessmentId || medicalReport.id,
+        doshaImbalance: data?.doshaImbalance || medicalReport.doshaImbalance,
+        severityLevel: data?.severityLevel || medicalReport.severityLevel,
+        recommendedSpecialty: data?.recommendedSpecialty || medicalReport.recommendedSpecialty,
+        recommendations: data?.recommendations || medicalReport.recommendations,
+        disclaimer: data?.disclaimer || medicalReport.disclaimer,
+        urgency: data?.urgency,
+      };
+
+      const existingHistory = JSON.parse(localStorage.getItem('ayur_history') || '[]');
+      localStorage.setItem('ayur_history', JSON.stringify([reportData, ...existingHistory]));
+      localStorage.setItem('last_report', JSON.stringify(reportData));
+
+      navigate('/results', { state: { reportData } });
+    } catch (error) {
+      const apiMessage = error?.response?.data?.message || 'Could not submit symptoms. Please try again.';
+      alert(apiMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 

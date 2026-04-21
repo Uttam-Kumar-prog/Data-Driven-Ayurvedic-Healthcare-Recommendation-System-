@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 
 // Components
 import Navbar from "./components/common/Navbar";
+import ChatAssistantWidget from "./components/chatbot/ChatAssistantWidget";
 
 // Pages
 import Landing from "./pages/Landing";
@@ -49,6 +50,8 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Landing />} />
         </Routes>
+
+        <ChatAssistantWidget />
       </Router>
     </AuthProvider>
   );
