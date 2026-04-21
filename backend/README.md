@@ -63,6 +63,7 @@ Doctors and booking
 - PUT /api/doctors/me/availability
 - POST /api/appointments
 - GET /api/appointments/mine
+- GET /api/appointments/room/:roomId/access
 - PATCH /api/appointments/:id/status
 - GET /api/appointments/:id/case-summary
 

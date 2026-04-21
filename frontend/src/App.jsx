@@ -17,6 +17,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import DoctorList from "./pages/DoctorList";       // <--- NEW
 import DoctorProfile from "./pages/DoctorProfile"; // <--- NEW
+import ConsultationRoom from "./pages/ConsultationRoom";
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
           
           {/* Doctor Portal */}
           <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
+          <Route path="/consultation/:roomId" element={<ConsultationRoom />} />
           
           {/* Informational Pages */}
           <Route path="/about" element={<About />} />

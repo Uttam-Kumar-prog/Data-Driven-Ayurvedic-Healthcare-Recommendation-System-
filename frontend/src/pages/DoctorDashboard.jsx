@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { appointmentsAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,13 +62,13 @@ export default function DoctorDashboard() {
   };
 
   const handleJoinCall = (appointment) => {
-    const link = appointment?.meeting?.joinUrl;
-    if (link) {
-      window.open(link, '_blank', 'noopener,noreferrer');
+    const link = appointment?.meeting?.joinUrl || '';
+    const roomId = link.includes('/consultation/') ? link.split('/consultation/')[1] : '';
+    if (!roomId) {
+      alert('No meeting room found for this appointment.');
       return;
     }
-
-    alert('No meeting link found for this appointment.');
+    navigate(`/consultation/${roomId}`);
   };
 
   const saveUpdate = async () => {

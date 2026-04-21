@@ -188,3 +188,62 @@ exports.getDoctorCaseSummary = asyncHandler(async (req, res) => {
     },
   });
 });
+
+exports.getMeetingRoomAccess = asyncHandler(async (req, res) => {
+  const { roomId } = req.params;
+  const appointment = await Appointment.findOne({ 'meeting.roomId': roomId })
+    .populate('patientId', 'fullName')
+    .populate('doctorId', 'fullName');
+
+  if (!appointment) {
+    throw new ApiError(404, 'Consultation room not found');
+  }
+
+  const isAdmin = req.user.role === 'admin';
+  const isDoctor = String(appointment.doctorId?._id || appointment.doctorId) === String(req.user._id);
+  const isPatient = String(appointment.patientId?._id || appointment.patientId) === String(req.user._id);
+  if (!isAdmin && !isDoctor && !isPatient) {
+    throw new ApiError(403, 'You are not authorized to join this consultation');
+  }
+
+  const now = Date.now();
+  const startAtMs = new Date(appointment.startAt).getTime();
+  const endAtMs = new Date(appointment.endAt).getTime();
+  const windowStart = startAtMs - 20 * 60 * 1000;
+  const windowEnd = endAtMs + 90 * 60 * 1000;
+
+  const blockedStatus = ['CANCELLED', 'NO_SHOW'].includes(String(appointment.status || '').toUpperCase());
+  const insideWindow = now >= windowStart && now <= windowEnd;
+  const canJoinNow = !blockedStatus && insideWindow;
+
+  const reason = blockedStatus
+    ? `Meeting unavailable because appointment status is ${appointment.status}.`
+    : insideWindow
+    ? 'Meeting is active.'
+    : now < windowStart
+    ? 'Meeting is not open yet. You can join 20 minutes before scheduled time.'
+    : 'Meeting join window has passed.';
+
+  return res.json({
+    success: true,
+    access: {
+      canJoinNow,
+      reason,
+      now: new Date(now).toISOString(),
+      windowStart: new Date(windowStart).toISOString(),
+      windowEnd: new Date(windowEnd).toISOString(),
+    },
+    appointment: {
+      id: appointment._id,
+      status: appointment.status,
+      slotDate: appointment.slotDate,
+      slotTime: appointment.slotTime,
+      consultationType: appointment.consultationType,
+      startAt: appointment.startAt,
+      endAt: appointment.endAt,
+      meeting: appointment.meeting,
+      doctorName: appointment?.doctorId?.fullName || '',
+      patientName: appointment?.patientId?.fullName || '',
+    },
+  });
+});

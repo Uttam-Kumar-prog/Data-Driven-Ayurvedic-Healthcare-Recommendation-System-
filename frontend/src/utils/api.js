@@ -50,6 +50,7 @@ export const doctorsAPI = {
 export const appointmentsAPI = {
   create: (data) => api.post('/appointments', data),
   mine: () => api.get('/appointments/mine'),
+  roomAccess: (roomId) => api.get(`/appointments/room/${roomId}/access`),
   updateStatus: (id, data) => api.patch(`/appointments/${id}/status`, data),
   caseSummary: (id) => api.get(`/appointments/${id}/case-summary`),
 };

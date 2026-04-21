@@ -59,6 +59,18 @@ export default function Dashboard() {
   const totalAssessments = history.length;
    const upcomingCount = appointments.filter(a => !['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(a.status)).length;
 
+  const handleJoinCall = (appt) => {
+    const roomId =
+      appt?.joinUrl?.includes('/consultation/')
+        ? appt.joinUrl.split('/consultation/')[1]
+        : '';
+    if (!roomId) {
+      alert('Consultation room is not available yet.');
+      return;
+    }
+    navigate(`/consultation/${roomId}`);
+  };
+
   // View the report (Redirects to Results page)
   const handleViewReport = (report) => {
     navigate('/results', { state: { reportData: report } });
@@ -156,7 +168,7 @@ export default function Dashboard() {
                              </div>
                              <p className="text-blue-600 font-bold text-xs uppercase tracking-wide mb-3">{appt.doctorSpecialty}</p>
                              
-                             <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
+                          <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
                                 <div className="flex items-center gap-1.5">
                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                    {appt.time}
@@ -166,6 +178,14 @@ export default function Dashboard() {
                                    Video Call
                                 </div>
                              </div>
+                          </div>
+                          <div className="mt-4">
+                            <button
+                              onClick={() => handleJoinCall(appt)}
+                              className="text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl shadow-md transition-colors"
+                            >
+                              Join Consultation
+                            </button>
                           </div>
                        </div>
                     ))}

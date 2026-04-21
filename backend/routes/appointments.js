@@ -5,6 +5,7 @@ const {
   listMyAppointments,
   updateAppointmentStatus,
   getDoctorCaseSummary,
+  getMeetingRoomAccess,
 } = require('../controllers/appointmentController');
 const { protect, authorize } = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -27,6 +28,13 @@ router.post(
   bookAppointment
 );
 router.get('/mine', protect, listMyAppointments);
+router.get(
+  '/room/:roomId/access',
+  protect,
+  param('roomId').isString().trim().notEmpty().isLength({ min: 6, max: 120 }).withMessage('invalid roomId'),
+  validate,
+  getMeetingRoomAccess
+);
 router.patch(
   '/:id/status',
   protect,
